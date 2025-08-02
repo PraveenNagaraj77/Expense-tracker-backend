@@ -28,73 +28,46 @@ public class NotificationService {
     @Value("${expense.tracker.frontend.url}")
     private String frontendUrl;
 
-    // ⏰ Daily reminder to update income/expenses
-    @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Kolkata")
-    public void sendDailyIncomeExpenseReminder() {
-        log.info("Job Started: sendDailyIncomeExpenseReminder()");
-        List<ProfileEntity> profiles = profileRepository.findAll();
+    // ✅ Combined daily email with reminder + income, expense, savings summary
+@Scheduled(cron = "0 0 23 * * *", zone = "Asia/Kolkata") // Every day at 11:00 PM
+public void sendDailyReminderAndSummaryEmail() {
+    log.info("Job Started: sendDailyReminderAndSummaryEmail()");
+    List<ProfileEntity> profiles = profileRepository.findAll();
 
-        for (ProfileEntity profile : profiles) {
-            if (profile.getEmail() == null || profile.getFullName() == null)
-                continue;
+    for (ProfileEntity profile : profiles) {
+        if (profile.getEmail() == null || profile.getFullName() == null)
+            continue;
 
-            String subject = "Daily Expense Tracker Reminder";
-            String body = "Hi " + profile.getFullName() + ",<br><br>" +
-                    "Don't forget to update your income and expenses for today!<br>" +
-                    "Click the link below to track your expenses:<br>" +
-                    "<a href='" + frontendUrl + "'>Go to Expense Tracker</a><br><br>" +
-                    "Regards,<br>Expense Tracker Team";
+        LocalDate today = LocalDate.now();
+        BigDecimal income = incomeService.getTotalIncomeByProfileId(profile.getId());
+        BigDecimal expense = expenseService.getExpensesTotalForUserOnDate(profile.getId(), today);
 
-            try {
-                emailService.sendEmail(profile.getEmail(), subject, body);
-                log.info("Reminder email sent to {}", profile.getEmail());
-            } catch (Exception e) {
-                log.error("Failed to send reminder email to {}: {}", profile.getEmail(), e.getMessage());
-            }
+        income = income != null ? income : BigDecimal.ZERO;
+        expense = expense != null ? expense : BigDecimal.ZERO;
+
+        BigDecimal netSavings = income.subtract(expense);
+
+        String subject = "Daily Update: Track & Review Your Finances";
+        String body = "Hi " + profile.getFullName() + ",<br><br>" +
+                "Just a friendly reminder to update your income and expenses for today!<br><br>" +
+                "Here's your financial snapshot for <strong>" + today + "</strong>:<br>" +
+                "<ul>" +
+                "<li><strong>Income:</strong> ₹" + income.setScale(2, RoundingMode.HALF_UP) + "</li>" +
+                "<li><strong>Expenses:</strong> ₹" + expense.setScale(2, RoundingMode.HALF_UP) + "</li>" +
+                "<li><strong>Net Savings:</strong> ₹" + netSavings.setScale(2, RoundingMode.HALF_UP) + "</li>" +
+                "</ul>" +
+                "Stay on track by updating your records here:<br>" +
+                "<a href='" + frontendUrl + "'>Go to Expense Tracker</a><br><br>" +
+                "Regards,<br>Expense Tracker Team";
+
+        try {
+            emailService.sendEmail(profile.getEmail(), subject, body);
+            log.info("Combined email sent to {}", profile.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send email to {}: {}", profile.getEmail(), e.getMessage());
         }
-
-        log.info("Job Ended: sendDailyIncomeExpenseReminder()");
     }
 
-    // ✅ Daily summary email with income, expense, savings
-    @Scheduled(cron = "0 0 23 * * *", zone = "Asia/Kolkata") // 10 minutes after the reminder
-    public void sendDailyExpenseSummary() {
-        log.info("Job Started: sendDailyExpenseSummary()");
-        List<ProfileEntity> profiles = profileRepository.findAll();
-
-        for (ProfileEntity profile : profiles) {
-            if (profile.getEmail() == null || profile.getFullName() == null)
-                continue;
-
-            LocalDate today = LocalDate.now();
-            BigDecimal income = incomeService.getTotalIncomeByProfileId(profile.getId());
-            BigDecimal expense = expenseService.getExpensesTotalForUserOnDate(profile.getId(), today);
-
-            income = income != null ? income : BigDecimal.ZERO;
-            expense = expense != null ? expense : BigDecimal.ZERO;
-
-            BigDecimal netSavings = income.subtract(expense);
-
-            String subject = "Your Daily Expense Summary";
-            String body = "Hi " + profile.getFullName() + ",<br><br>" +
-                    "Here's your financial summary for today:<br>" +
-                    "<ul>" +
-                    "<li><strong>Income:</strong> ₹" + income.setScale(2, RoundingMode.HALF_UP) + "</li>" +
-                    "<li><strong>Expenses:</strong> ₹" + expense.setScale(2, RoundingMode.HALF_UP) + "</li>" +
-                    "<li><strong>Net Savings:</strong> ₹" + netSavings.setScale(2, RoundingMode.HALF_UP) + "</li>" +
-                    "</ul>" +
-                    "Click below to review or update your data:<br>" +
-                    "<a href='" + frontendUrl + "'>Go to Expense Tracker</a><br><br>" +
-                    "Regards,<br>Expense Tracker Team";
-
-            try {
-                emailService.sendEmail(profile.getEmail(), subject, body);
-                log.info("Summary email sent to {}", profile.getEmail());
-            } catch (Exception e) {
-                log.error("Failed to send summary email to {}: {}", profile.getEmail(), e.getMessage());
-            }
-        }
-
-        log.info("Job Ended: sendDailyExpenseSummary()");
-    }
+    log.info("Job Ended: sendDailyReminderAndSummaryEmail()");
+}
 }
