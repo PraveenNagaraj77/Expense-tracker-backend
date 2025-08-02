@@ -57,7 +57,7 @@ public class NotificationService {
     }
 
     // ✅ Daily summary email with income, expense, savings
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Kolkata") // 10 minutes after the reminder
+    @Scheduled(cron = "0 0 23 * * *", zone = "Asia/Kolkata") // 10 minutes after the reminder
     public void sendDailyExpenseSummary() {
         log.info("Job Started: sendDailyExpenseSummary()");
         List<ProfileEntity> profiles = profileRepository.findAll();
