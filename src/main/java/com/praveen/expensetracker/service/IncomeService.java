@@ -6,10 +6,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.praveen.expensetracker.dto.ExpenseDTO;
 import com.praveen.expensetracker.dto.IncomeDTO;
 import com.praveen.expensetracker.entity.CategoryEntity;
-import com.praveen.expensetracker.entity.ExpenseEntity;
 import com.praveen.expensetracker.entity.IncomeEntity;
 import com.praveen.expensetracker.entity.ProfileEntity;
 import com.praveen.expensetracker.repository.CategoryRepository;
@@ -23,6 +21,7 @@ public class IncomeService {
     private final CategoryRepository categoryRepository;
     private final IncomeRepository incomeRepository;
     private final ProfileService profileService;
+
 
     public IncomeDTO addIncome(IncomeDTO dto) {
         ProfileEntity profile = profileService.getCurrentProfile();
@@ -55,7 +54,6 @@ public class IncomeService {
         IncomeEntity entity = incomeRepository.findById(incomeId)
                 .orElseThrow(() -> new RuntimeException("Income not found"));
 
-        // Ensure the income belongs to the current user
         if (!entity.getProfile().getId().equals(profile.getId())) {
             throw new RuntimeException("You are not authorized to delete this income.");
         }
@@ -63,41 +61,36 @@ public class IncomeService {
         incomeRepository.delete(entity);
     }
 
-
-
-    //Get latest 5 incomes for current User
-    public List<IncomeDTO> getLatest5IncomesForCurrentUser(){
+    // Get latest 5 incomes for current User
+    public List<IncomeDTO> getLatest5IncomesForCurrentUser() {
         ProfileEntity profile = profileService.getCurrentProfile();
-        List<IncomeEntity> list =  incomeRepository.findTop5ByProfileIdOrderByDateDesc(profile.getId());
+        List<IncomeEntity> list = incomeRepository.findTop5ByProfileIdOrderByDateDesc(profile.getId());
         return list.stream().map(this::toDto).toList();
-        
     }
 
-    //Get total income for current User
-    public BigDecimal getTotalIncomeForCurrentUser(){
+    // Get total income for current User
+    public BigDecimal getTotalIncomeForCurrentUser() {
         ProfileEntity profile = profileService.getCurrentProfile();
-        BigDecimal total =  incomeRepository.findTotalIncomeByProfileId(profile.getId());
+        BigDecimal total = incomeRepository.findTotalIncomeByProfileId(profile.getId());
         return total != null ? total : BigDecimal.ZERO;
     }
 
-
-    //Filter Incomes
-    public List<IncomeDTO> filterIncomes(LocalDate startDate,LocalDate endDate,String keyword,org.springframework.data.domain.Sort sort){
+    // Filter Incomes
+    public List<IncomeDTO> filterIncomes(LocalDate startDate, LocalDate endDate, String keyword,
+                                         org.springframework.data.domain.Sort sort) {
         ProfileEntity profile = profileService.getCurrentProfile();
-        List<IncomeEntity> list =  incomeRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(profile.getId(), startDate, endDate, keyword, sort);
+        List<IncomeEntity> list = incomeRepository.findByProfileIdAndDateBetweenAndNameContainingIgnoreCase(
+                profile.getId(), startDate, endDate, keyword, sort);
         return list.stream().map(this::toDto).toList();
     }
 
-
     public BigDecimal getTotalIncomeByProfileId(Long profileId) {
-    BigDecimal total = incomeRepository.findTotalIncomeByProfileId(profileId);
-    return total != null ? total : BigDecimal.ZERO;
-}
+        BigDecimal total = incomeRepository.findTotalIncomeByProfileId(profileId);
+        return total != null ? total : BigDecimal.ZERO;
+    }
 
-
-    
-    // helper methods
-
+   
+    // ✅ Helper method: Convert DTO to Entity
     private IncomeEntity toEntity(IncomeDTO dto, ProfileEntity profile, CategoryEntity category) {
         return IncomeEntity.builder()
                 .name(dto.getName())
@@ -109,6 +102,7 @@ public class IncomeService {
                 .build();
     }
 
+    // ✅ Helper method: Convert Entity to DTO
     private IncomeDTO toDto(IncomeEntity entity) {
         return IncomeDTO.builder()
                 .id(entity.getId())

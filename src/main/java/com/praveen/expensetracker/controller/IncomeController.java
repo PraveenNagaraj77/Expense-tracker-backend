@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,12 +26,11 @@ public class IncomeController {
 
     private final IncomeService incomeService;
 
- @PostMapping
-    public ResponseEntity<IncomeDTO> addExpense(@RequestBody IncomeDTO dto){
-        IncomeDTO saved =  incomeService.addIncome(dto);
+    @PostMapping
+    public ResponseEntity<IncomeDTO> addExpense(@RequestBody IncomeDTO dto) {
+        IncomeDTO saved = incomeService.addIncome(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
-
 
     @GetMapping
     public ResponseEntity<List<IncomeDTO>> getIncomes() {
@@ -39,10 +39,9 @@ public class IncomeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteIncome(@PathVariable Long id){
+    public ResponseEntity<Void> deleteIncome(@PathVariable Long id) {
         incomeService.deleteIncome(id);
         return ResponseEntity.noContent().build();
     }
-
 
 }
