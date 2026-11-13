@@ -1,64 +1,90 @@
+
 package com.praveen.expensetracker.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final RestClient.Builder restClientBuilder;
 
-    @Value("${spring.mail.properties.mail.smtp.from}")
+    @Value("${brevo.api.key}")
+    private String apiKey;
+
+    @Value("${brevo.sender.email}")
     private String fromEmail;
 
-    public void sendEmail(String to, String subject, String body) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail); // Optional: many SMTP providers ignore this
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body); // Plain text only
+    private static final String BREVO_API_URL =
+            "https://api.brevo.com/v3/smtp/email";
 
-            log.info("Sending email to {}", to);
-            mailSender.send(message);
-        } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
-            throw new RuntimeException("Failed to send email", e);
-        }
+    public void sendEmail(String to, String subject, String body) {
+        Map<String, Object> payload = Map.of(
+                "sender", Map.of("email", fromEmail),
+                "to", List.of(Map.of("email", to)),
+                "subject", subject,
+                "textContent", body
+        );
+
+        sendViaBrevo(payload, to);
     }
 
-     public void sendEmailWithAttachment(String to,
-                                        String subject,
-                                        String body,
-                                        byte[] attachment,
-                                        String filename) {
+    public void sendEmailWithAttachment(
+            String to,
+            String subject,
+            String body,
+            byte[] attachment,
+            String filename) {
+
+        Map<String, Object> attachmentData = Map.of(
+                "content", Base64.getEncoder().encodeToString(attachment),
+                "name", filename
+        );
+
+        Map<String, Object> payload = Map.of(
+                "sender", Map.of("email", fromEmail),
+                "to", List.of(Map.of("email", to)),
+                "subject", subject,
+                "textContent", body,
+                "attachment", List.of(attachmentData)
+        );
+
+        sendViaBrevo(payload, to);
+    }
+
+    private void sendViaBrevo(Map<String, Object> payload, String to) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            restClientBuilder.build()
+                    .post()
+                    .uri(BREVO_API_URL)
+                    .header("api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .toBodilessEntity();
 
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(body);
+            log.info("Email successfully submitted to Brevo for {}", to);
 
-            ByteArrayResource resource = new ByteArrayResource(attachment);
-            helper.addAttachment(filename, resource);
+        } catch (RestClientResponseException e) {
+            log.error("Brevo API error. Status: {}, Response: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Failed to send email through Brevo", e);
 
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send email", e);
+        } catch (Exception e) {
+            log.error("Failed to send email through Brevo: {}", e.getMessage());
+            throw new RuntimeException("Failed to send email through Brevo", e);
         }
     }
 }
