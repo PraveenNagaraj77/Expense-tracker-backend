@@ -43,6 +43,7 @@ public class SecurityConfig {
                                 "/health",
                                 "/register",
                                 "/activate",
+                                "/resend-activation",
                                 "/login",
                                 "/api/v1.0/excel/download/income",
                                 "/api/v1.0/excel/download/expense"
